@@ -33,7 +33,7 @@ The project focuses on **automation, scalability, and actionable insights** for 
 5. **Visualization:** Power BI dashboards provide Budget-Actual-Predicted comparisons.  
 6. **Automation:** Power Automate manages email alerts and report refresh notifications.  
 
-![Architecture Diagram](diagram-export-11-5-2025-12_43_02-PM.png)
+![Architecture Diagram](Flow Chart.png)
 
 ---
 
