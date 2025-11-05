@@ -1,0 +1,245 @@
+{
+    "name": "Pagination_WORKING",
+    "properties": {
+        "activities": [
+            {
+                "name": "GetBearerToken",
+                "type": "WebActivity",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "POST",
+                    "headers": {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    "url": "https://login.microsoftonline.com/ca9359fb-16ff-4067-8c86-89513acaa3b2/oauth2/v2.0/token",
+                    "body": "grant_type=client_credentials&client_id=XYZ&client_secret=Secret_key&scope=https://api.businesscentral.dynamics.com/.default",
+                    "linkedServiceName": {
+                        "referenceName": "LS_BC_OAuth_Token",
+                        "type": "LinkedServiceReference"
+                    }
+                }
+            },
+            {
+                "name": "SetAPIs",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "GetBearerToken",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "APILIST",
+                    "value": {
+                        "value": "@json('[{\"name\": \"MaterialTypeMasterData\", \"url\": \"MaterialTypeMasterData\"},{\"name\": \"AcxItemMasterData\", \"url\": \"AcxItemMasterData\"},{\"name\": \"ItemLedgerEntryData\", \"url\": \"ItemLedgerEntryData\"},{\"name\": \"CustomerOrderTagLineData\", \"url\": \"CustomerOrderTagLineData\"},{\"name\": \"AcxTagLinesData\", \"url\": \"AcxTagLinesData\"},{\"name\": \"AcxOldTagLineData\", \"url\": \"AcxOldTagLineData\"}]')",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "StoreBearerToken",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "GetBearerToken",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "StoreBearerToken",
+                    "value": {
+                        "value": "@activity('GetBearerToken').output.access_token",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "LoopThroughAPIs",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "SetAPIs",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "StoreBearerToken",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@variables('APILIST')",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "SetURL",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "url",
+                                "value": {
+                                    "value": "@concat('/v2.0/ca9359fb-16ff-4067-8c86-89513acaa3b2/FinalUAT/ODataV4/Company(''My Company'')/', item().url)",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "SetName",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "name_of_url",
+                                "value": {
+                                    "value": "@item().name",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "CopyData",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "SetURL",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "SetName",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "RestSource",
+                                    "httpRequestTimeout": "00:01:40",
+                                    "requestInterval": "00.00:00:00.010",
+                                    "requestMethod": "GET",
+                                    "additionalHeaders": {
+                                        "Authorization": {
+                                            "value": "@concat('Bearer ', variables('StoreBearerToken'))",
+                                            "type": "Expression"
+                                        }
+                                    },
+                                    "paginationRules": {
+                                        "AbsoluteUrl": "$['@odata.nextLink']"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "JsonSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings",
+                                        "typeProperties": {
+                                            "folderPath": {
+                                                "type": "Expression",
+                                                "value": "@concat('output/', variables('name_of_url'))"
+                                            }
+                                        }
+                                    },
+                                    "formatSettings": {
+                                        "type": "JsonWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "Rest_API",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "API_URL": {
+                                            "value": "@variables('url')",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "Json3",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "folderPath": {
+                                            "value": "@concat('output/', variables('name_of_url'))",
+                                            "type": "Expression"
+                                        },
+                                        "fileName": {
+                                            "value": "@concat(variables('name_of_url'), '_', pipeline().RunId, '_', utcnow(), '.json')",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "variables": {
+            "StoreBearerToken": {
+                "type": "String"
+            },
+            "APILIST": {
+                "type": "Array"
+            },
+            "url": {
+                "type": "String"
+            },
+            "name_of_url": {
+                "type": "String"
+            }
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-07-18T04:37:56Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

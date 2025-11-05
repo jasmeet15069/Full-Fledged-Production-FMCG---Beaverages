@@ -1,0 +1,24 @@
+{
+    "name": "Rest_API",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "static_API",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "API_URL": {
+                "type": "string"
+            }
+        },
+        "annotations": [],
+        "type": "RestResource",
+        "typeProperties": {
+            "relativeUrl": {
+                "value": "@dataset().API_URL",
+                "type": "Expression"
+            }
+        },
+        "schema": []
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}
